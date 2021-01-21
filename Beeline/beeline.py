@@ -19,20 +19,41 @@ def getStore(url):
     data = []
 
     response = requests.get(f'{url}')
+    if response.status_code != 200:
+        print("Bad request")
+        return False
 
     soup = BeautifulSoup(response.text, 'lxml')
-
     divs = soup.find_all('div', class_="col-sm-4 col-xs-6")
+
+    if len(divs) == 0:
+        print("Error")
+        return False
+
     for div in divs:
         aHrefCity = div.find_all('a')
+        if len(aHrefCity) == 0:
+            print("City links not found")
+            break 
+
         for aCity in aHrefCity:
             s = aCity.get('href')
             urlCity = s.replace('/store', '')
             city = aCity.text
             response1 = requests.get(f'{url}{urlCity}')
+
+            if response1.status_code != 200:
+                print("Bad request to found city")
+                break
+
             soup1 = BeautifulSoup(response1.text, 'lxml')
             div = soup1.find('div', class_="wrapper")
             pShops = div.find_all('p')
+
+            if len(pShops) == 0:
+                print(f"Shops not found in {city} city")
+                break
+
             for store in pShops:
                 check = store.find('a')
                 if check:
@@ -70,7 +91,6 @@ def getStore(url):
                             storeLoad = Store(street, store.text, url + urlCity + urlStore, phone, workTime, float(coords[0]), float(coords[1]))
                             data.append(storeLoad)
                             break
-            print (city + ' - completed')
     
     geojsonData = getGeojson(data)
     return geojsonData
