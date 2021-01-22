@@ -62,7 +62,7 @@ def GetPoints(city):
             
         lat = float(coords[0])
         lng = float(coords[1])
-        pointData = PointData(city.name, url, lat, lng, address, phoncde, time)
+        pointData = PointData(city.name, url, lat, lng, address, phone, time)
         yield pointData
 
 def ToGeojson(data):
