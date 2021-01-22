@@ -56,6 +56,10 @@ def GetPoints(city):
         link = point.find('a').get('data-link')
         match = re.search(r"ll=(.+)\&", str(link))
         coords = match.group(1).split("&")[0].split('%2C')
+        print(len(coords))
+        if len(coords) < 2:
+            coords = coords[0].split(',')
+            
         lat = float(coords[0])
         lng = float(coords[1])
         pointData = PointData(city.name, url, lat, lng, address, phone, time)
@@ -65,7 +69,7 @@ def ToGeojson(data):
     dataGeojson = []
 
     for gj in data:
-        my_point = geojson.Point((gj.lat, gj.lng))
+        my_point = geojson.Point((gj.lng, gj.lat))
         myProperties = {'url': gj.url,
                         'city': gj.city,
                         'address': gj.address,

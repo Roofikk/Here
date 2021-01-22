@@ -15,7 +15,7 @@ def toGeojson(data):
     
     geoList = []
     for gj in data:
-        my_point = geojson.Point((float(gj['lat']), float(gj['lon'])))
+        my_point = geojson.Point((float(gj['lon']), float(gj['lat'])))
         myProperties = {'name': gj['name'],
                         'street': gj['address'],
                         'work_time': gj['work_time']}

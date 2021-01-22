@@ -200,7 +200,7 @@ def ToGeojson(data):
     dataGeojson = []
 
     for gj in data:
-        my_point = geojson.Point((gj.lat, gj.lon))
+        my_point = geojson.Point((gj.lon, gj.lat))
         myProperties = {'url': gj.url,
                         'country': gj.country,
                         'city': gj.city,
