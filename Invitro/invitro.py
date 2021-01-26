@@ -26,10 +26,10 @@ _template = {
     'пр.': 'проспект'
 }
 
-_apiKey = "X6TfKLTfCpXg2BvcgPP6b6wD6ZAWFU7chubAuTxEwng"
+_apiKey = "Civl-afRyVsSHQr6fBFZ448sbrVqCuN6EgouNgax9BI"
 
 class PointData:
-    def __init__(self, country, city, url, lat, lon, address, store, phone, metroName):
+    def __init__(self, country, city, url, lat, lon, address, store, phone, metroName, coordinatesType):
         self.country = country
         self.city = city
         self.url = url
@@ -39,6 +39,7 @@ class PointData:
         self.store = store
         self.phone = phone
         self.metroName = metroName
+        self.coordinatesType = coordinatesType
 
 def getPointsInOtherCountries(country):
     res = requests.get(f'{country[0]}/offices')
@@ -92,7 +93,7 @@ def GetData(soup, link, cityName, country):
                     lat = 0
                     lon = 0
                 pointData = PointData(country[1], cityName, f'{link}', lat, lon, jsonObject['UF_ADDRESS'], 
-                                      jsonObject['UF_NAME'], jsonObject['UF_PHONE'], jsonObject['UF_METRO_NAME'])
+                                      jsonObject['UF_NAME'], jsonObject['UF_PHONE'], jsonObject['UF_METRO_NAME'], 'From site')
                 break
 
     if pointData is None:
@@ -107,7 +108,7 @@ def GetData(soup, link, cityName, country):
             addressWithPhone = container.text.rstrip().lstrip().split(';')
             address = addressWithPhone[0]
             phone = addressWithPhone[1].split(',') if len(addressWithPhone) != 1 else False
-        pointData = PointData(country[1], cityName, f'{link}', 0, 0, address, address, phone, '')
+        pointData = PointData(country[1], cityName, f'{link}', 0, 0, address, address, phone, '', 'From site')
     
     return pointData
 
@@ -116,8 +117,6 @@ def getPoints(country):
     if res.status_code != 200:
         print("Bad request")
         return False
-
-    data = []
 
     soup = BeautifulSoup(res.text, 'lxml')
     rowCities = soup.find('div', class_='row cities')
@@ -164,13 +163,11 @@ def getPoints(country):
                             lat = float(splitStr[0])
                             lon = float(splitStr[1])
                             pointData = PointData(country[1], nameCity, f'{country[0]}{codeOffice}', lat, lon, jsonObject['UF_ADDRESS'], 
-                                                  jsonObject['UF_NAME'], jsonObject['UF_PHONE'], jsonObject['UF_METRO_NAME'])
-                            data.append(pointData)
+                                                  jsonObject['UF_NAME'], jsonObject['UF_PHONE'], jsonObject['UF_METRO_NAME'], 'From site')
                             yield pointData
                             break
 
                     time.sleep(1)
-    return ToGeojson(data)
 
 def Geocode(address, apiKey):
     URL = 'https://geocode.search.hereapi.com/v1/geocode'
@@ -182,7 +179,17 @@ def Geocode(address, apiKey):
     }
     
     # Парсинг ответа в JSON формате
-    response = requests.get(URL, params=params).json()
+    response = requests.get(URL, params=params)
+    if response.status_code != 200:
+        print('Bad request in HERE API')
+        return False
+    response = response.json()
+    if len(response) == 0:
+        print(address)
+        return False
+    if len(response['items']) == 0:
+        print(address)
+        return False
     item = response['items'][0]
 
     address = item['address']
@@ -200,7 +207,7 @@ def ToGeojson(data):
     dataGeojson = []
 
     for gj in data:
-        my_point = geojson.Point((gj.lon, gj.lat))
+        my_point = geojson.Point((gj.lat, gj.lon))
         myProperties = {'url': gj.url,
                         'country': gj.country,
                         'city': gj.city,
@@ -212,26 +219,14 @@ def ToGeojson(data):
         dataGeojson.append(feature)
     return geojson.FeatureCollection(dataGeojson)
 
-if __name__ == '__main__':
+def main(country):
     data = []
-
-    for dx in getPointsInOtherCountries(_countries['ua']):
-        data.append(dx)
-        
-    for dx in getPointsInOtherCountries(_countries['by']):
-        data.append(dx)
-        
-    for dx in getPointsInOtherCountries(_countries['kz']):
-        data.append(dx)
-        
-    for dx in getPointsInOtherCountries(_countries['kg']):
-        data.append(dx)
-
-    for dx in getPointsInOtherCountries(_countries['am']):
-        data.append(dx)
-
-    for dx in getPoints(_countries['ru']):
-        data.append(dx)
+    if country == 'ru':
+        for dx in getPoints(_countries[country]):
+            data.append(dx)
+    else:
+        for dx in getPointsInOtherCountries(_countries[country]):
+            data.append(dx)
 
     for dt in data:
         if dt.lat == 0 and dt.lon == 0:
@@ -240,7 +235,12 @@ if __name__ == '__main__':
             for tp in _template:
                 address = address.replace(tp, _template[tp])
             res = Geocode(address, _apiKey)
-            dt.lat = res['lat']
-            dt.lon = res['lng']
+            if res:
+                dt.lat = res['lat']
+                dt.lon = res['lng']
+                dt.coordinatesType = "From HERE API"
 
     f = open('pickpoint.geojson', 'w', encoding ='utf-8').write(str(ToGeojson(data)))
+
+if __name__ == '__main__':
+    main('ru')
