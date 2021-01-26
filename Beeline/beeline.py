@@ -61,10 +61,8 @@ def GetStore(url, city):
                     match = re.search(r"\[(.+)\]", str(match.group(0)))
                     coords = match.group(1).split(', ')
                     storeLoad = Store(street, store.text, url + urlStore, phone, workTime, float(coords[0]), float(coords[1]))
-                    print(url + urlStore + " - finished")
                     yield storeLoad
                     break
-    print(url + city + ' - Successful')
 
 def main(url):
     data = []
