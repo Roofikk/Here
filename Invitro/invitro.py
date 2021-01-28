@@ -29,12 +29,12 @@ _template = {
 _apiKey = "Civl-afRyVsSHQr6fBFZ448sbrVqCuN6EgouNgax9BI"
 
 class PointData:
-    def __init__(self, country, city, url, lat, lon, address, store, phone, metroName, coordinatesType):
+    def __init__(self, country, city, url, lon, lat, address, store, phone, metroName, coordinatesType):
         self.country = country
         self.city = city
         self.url = url
-        self.lat = lat
-        self.lon = lon
+        self.original_lat = lat
+        self.original_lon = lon
         self.address = address
         self.store = store
         self.phone = phone
@@ -207,7 +207,7 @@ def ToGeojson(data):
     dataGeojson = []
 
     for gj in data:
-        my_point = geojson.Point((gj.lat, gj.lon))
+        my_point = geojson.Point((gj.original_lon, gj.original_lat))
         myProperties = {'url': gj.url,
                         'country': gj.country,
                         'city': gj.city,
@@ -229,15 +229,15 @@ def main(country):
             data.append(dx)
 
     for dt in data:
-        if dt.lat == 0 and dt.lon == 0:
+        if dt.original_lon == 0 and dt.original_lat == 0:
             address = dt.address
             address = dt.country + ", " + address
             for tp in _template:
                 address = address.replace(tp, _template[tp])
             res = Geocode(address, _apiKey)
             if res:
-                dt.lat = res['lat']
-                dt.lon = res['lng']
+                dt.original_lat = res['lat']
+                dt.original_lon = res['lng']
                 dt.coordinatesType = "From HERE API"
 
     f = open('pickpoint.geojson', 'w', encoding ='utf-8').write(str(ToGeojson(data)))

@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+import pandas as pd
 import geojson
 import re
 import asyncio
@@ -8,8 +9,9 @@ import aiohttp
 url = "https://beeline-tochki.ru"
 
 class Store:
-    def __init__(self, street, store, url, phone, workTime, lon, lat):
-        self.street = street
+    def __init__(self, city, address, store, url, phone, workTime, lat, lon):
+        self.city = city
+        self.address = address
         self.store = store
         self.url = url
         self.phone = phone
@@ -17,8 +19,8 @@ class Store:
         self.lat = lat
         self.lon = lon
 
-def GetStore(url, city):
-    res = requests.get(url + city)
+def GetStore(url, cityLink, city):
+    res = requests.get(url + cityLink)
     soup1 = BeautifulSoup(res.text, 'lxml')
 
     div = soup1.find('div', class_="wrapper")
@@ -37,7 +39,7 @@ def GetStore(url, city):
 
             street = soup2.find('span', itemprop='streetAddress')
             if street:
-                street = street.text
+                address = street.text
 
             phone = soup2.find('span', itemprop='telephone')
             if phone:
@@ -60,7 +62,7 @@ def GetStore(url, city):
                     match = re.search(r"center: \[(.+)\],", str(script_content))
                     match = re.search(r"\[(.+)\]", str(match.group(0)))
                     coords = match.group(1).split(', ')
-                    storeLoad = Store(street, store.text, url + urlStore, phone, workTime, float(coords[0]), float(coords[1]))
+                    storeLoad = Store(city, address, store.text, url + urlStore, phone, workTime, float(coords[0]), float(coords[1]))
                     yield storeLoad
                     break
 
@@ -88,18 +90,41 @@ def main(url):
         for aCity in aHrefCity:
             s = aCity.get('href')
             city = aCity.text
-            for store in GetStore(url, s):
+            for store in GetStore(url, s, city):
                 data.append(store)
 
     geojsonData = getGeojson(data)    
     f = open('pickpoint.geojson', 'w', encoding ='utf-8').write(str(geojsonData))
+
+    dict_for_csv = { 'City': [],
+                     'Address': [],
+                     'Store': [],
+                     'URL': [],
+                     'Phone': [],
+                     'Work_time': [],
+                     'Original_lng': [],
+                     'Original_lat': []
+    }
+
+    for dt in data:
+        dict_for_csv['City'].append(dt.city)
+        dict_for_csv['Address'].append(dt.address)
+        dict_for_csv['Store'].append(dt.store)
+        dict_for_csv['URL'].append(dt.url)
+        dict_for_csv['Phone'].append(dt.phone)
+        dict_for_csv['Work_time'].append(dt.workTime)
+        dict_for_csv['Original_lng'].append(dt.lon)
+        dict_for_csv['Original_lat'].append(dt.lat)
+
+    df = pd.DataFrame(dict_for_csv)
+    df.to_csv('data.csv', index = False, header = True, encoding = 'utf-8', sep = ';')
 
 def getGeojson(data):
 
     geoList = []
     for pt in data:
         my_point = geojson.Point((pt.lon, pt.lat))
-        myProperties = {'street': pt.street,
+        myProperties = {'address': pt.address,
                         'store': pt.store,
                         'url': pt.url,
                         'phone': pt.phone,
